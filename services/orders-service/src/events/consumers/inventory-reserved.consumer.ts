@@ -4,6 +4,7 @@
  * Does NOT import from products-service!
  */
 import { BaseEvent, logger } from '@oms/toolkit';
+import { OrderService } from '../../services/order.service';
 
 // Orders service defines what IT expects from inventory.reserved
 interface ExpectedInventoryReservedPayload {
@@ -14,9 +15,9 @@ interface ExpectedInventoryReservedPayload {
 }
 
 export class InventoryReservedConsumer {
-  private orderService: any; // Would be actual OrderService
+  private orderService: OrderService;
 
-  constructor(orderService: any) {
+  constructor(orderService: OrderService) {
     this.orderService = orderService;
   }
 
@@ -27,11 +28,10 @@ export class InventoryReservedConsumer {
       logger.info({ orderId: payload.orderId }, 'Processing inventory.reserved event');
 
       // Update order status or track reservation
-      await this.orderService.markInventoryReserved({
-        orderId: payload.orderId,
-        productId: payload.productId,
-        quantity: payload.quantity,
-      });
+      await this.orderService.markInventoryReserved(
+        payload.orderId,
+        payload.productId
+      );
 
       // If all items reserved, move to confirmed status
       const allReserved = await this.orderService.checkAllInventoryReserved(payload.orderId);

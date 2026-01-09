@@ -4,6 +4,7 @@
  * Moves order to processing status
  */
 import { BaseEvent, logger } from '@oms/toolkit';
+import { OrderService } from '../../services/order.service';
 
 interface ExpectedPaymentCompletedPayload {
   paymentId: string;
@@ -14,9 +15,9 @@ interface ExpectedPaymentCompletedPayload {
 }
 
 export class PaymentCompletedConsumer {
-  private orderService: any;
+  private orderService: OrderService;
 
-  constructor(orderService: any) {
+  constructor(orderService: OrderService) {
     this.orderService = orderService;
   }
 
@@ -27,12 +28,12 @@ export class PaymentCompletedConsumer {
       logger.info({ orderId: payload.orderId }, 'Processing payment.completed event');
 
       // Update order status to processing
-      await this.orderService.updateOrderStatus({
-        orderId: payload.orderId,
-        status: 'processing',
-        paymentId: payload.paymentId,
-        transactionId: payload.transactionId,
-      });
+      await this.orderService.updateOrderStatus(
+        payload.orderId,
+        'processing',
+        payload.paymentId,
+        payload.transactionId
+      );
 
       logger.info({ orderId: payload.orderId }, 'Order moved to processing status');
     } catch (error) {

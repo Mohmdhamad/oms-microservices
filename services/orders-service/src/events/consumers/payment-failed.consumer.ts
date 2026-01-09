@@ -4,6 +4,7 @@
  * Cancels order when payment fails
  */
 import { BaseEvent, logger } from '@oms/toolkit';
+import { OrderService } from '../../services/order.service';
 
 interface ExpectedPaymentFailedPayload {
   paymentId: string;
@@ -14,9 +15,9 @@ interface ExpectedPaymentFailedPayload {
 }
 
 export class PaymentFailedConsumer {
-  private orderService: any;
+  private orderService: OrderService;
 
-  constructor(orderService: any) {
+  constructor(orderService: OrderService) {
     this.orderService = orderService;
   }
 
@@ -27,10 +28,11 @@ export class PaymentFailedConsumer {
       logger.warn({ orderId: payload.orderId }, 'Processing payment.failed event');
 
       // Cancel the order
-      await this.orderService.cancelOrder(payload.orderId, {
-        reason: `Payment failed: ${payload.error}`,
-        automated: true,
-      });
+      await this.orderService.cancelOrder(
+        payload.orderId,
+        `Payment failed: ${payload.error}`,
+        true // automated
+      );
 
       logger.info({ orderId: payload.orderId }, 'Order cancelled due to payment failure');
     } catch (error) {

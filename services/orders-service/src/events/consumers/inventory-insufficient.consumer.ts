@@ -4,6 +4,7 @@
  * Cancels order when inventory cannot be reserved
  */
 import { BaseEvent, logger } from '@oms/toolkit';
+import { OrderService } from '../../services/order.service';
 
 interface ExpectedInventoryInsufficientPayload {
   orderId: string;
@@ -14,9 +15,9 @@ interface ExpectedInventoryInsufficientPayload {
 }
 
 export class InventoryInsufficientConsumer {
-  private orderService: any;
+  private orderService: OrderService;
 
-  constructor(orderService: any) {
+  constructor(orderService: OrderService) {
     this.orderService = orderService;
   }
 
@@ -27,10 +28,11 @@ export class InventoryInsufficientConsumer {
       logger.warn({ orderId: payload.orderId }, 'Processing inventory.insufficient event');
 
       // Cancel the order
-      await this.orderService.cancelOrder(payload.orderId, {
-        reason: `Insufficient inventory for product ${payload.productId}. ${payload.reason}`,
-        automated: true,
-      });
+      await this.orderService.cancelOrder(
+        payload.orderId,
+        `Insufficient inventory for product ${payload.productId}. ${payload.reason}`,
+        true // automated
+      );
 
       logger.info({ orderId: payload.orderId }, 'Order cancelled due to insufficient inventory');
     } catch (error) {

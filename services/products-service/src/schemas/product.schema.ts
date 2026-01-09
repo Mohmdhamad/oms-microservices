@@ -58,10 +58,20 @@ export const listProductsSchema = z.object({
   }),
 });
 
+// Get inventory
+export const getInventorySchema = z.object({
+  params: z.object({
+    productId: uuidSchema,
+  }),
+  query: z.object({
+    warehouseId: uuidSchema.optional(),
+  }),
+});
+
 // Update inventory
 export const updateInventorySchema = z.object({
   params: z.object({
-    id: uuidSchema,
+    productId: uuidSchema,
   }),
   body: z.object({
     warehouseId: uuidSchema,
@@ -115,6 +125,22 @@ export const batchUpdateInventorySchema = z.object({
         quantity: nonNegativeNumberSchema,
       })
     ).min(1, 'At least one update is required').max(1000, 'Maximum 1000 updates per batch'),
+  }),
+});
+
+// Create warehouse
+export const createWarehouseSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Warehouse name is required').max(255),
+    location: z.string().min(1, 'Location is required').max(500),
+    isActive: z.boolean().optional().default(true),
+  }),
+});
+
+// Get warehouse
+export const getWarehouseSchema = z.object({
+  params: z.object({
+    id: uuidSchema,
   }),
 });
 
