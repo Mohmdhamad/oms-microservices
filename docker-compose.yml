@@ -98,6 +98,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      LOG_LEVEL: info
       DATABASE_URL: postgres://products_user:products_pass@postgres:5432/oms_products_db
       RABBITMQ_URL: amqp://rabbitmq:rabbitmq@rabbitmq:5672
       REDIS_URL: redis://redis:6379
@@ -123,6 +124,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      LOG_LEVEL: info
       DATABASE_URL: postgres://orders_user:orders_pass@postgres:5432/oms_orders_db
       RABBITMQ_URL: amqp://rabbitmq:rabbitmq@rabbitmq:5672
       REDIS_URL: redis://redis:6379
