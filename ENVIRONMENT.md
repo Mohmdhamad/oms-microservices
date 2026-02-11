@@ -265,10 +265,10 @@ For production:
 ### 1. Copy Environment Files
 ```bash
 # Products Service
-cp services/products-service/.env.example services/products-service/.env
+cp services/products-service/ex services/products-service/.env
 
 # Orders Service
-cp services/orders-service/.env.example services/orders-service/.env
+cp services/orders-service/ex services/orders-service/.env
 ```
 
 ### 2. Update for Your Environment

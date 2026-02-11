@@ -5,7 +5,7 @@ import { logger, NotFoundError, ValidationError } from '@oms/toolkit';
 import { ProductEventPublisher } from '../events/publisher';
 import { createProductCreatedEvent } from '../events/product-created.event';
 import { createProductUpdatedEvent } from '../events/product-updated.event';
-import { batchInsert } from '@oms/toolkit/database/batch';
+import { batchInsert } from '@oms/toolkit';
 
 interface ListProductsFilters {
   search?: string;

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup script for OMS environment files
-# This script copies .env.example files to .env for local development
+# This script copies ex files to .env for local development
 
 set -e
 

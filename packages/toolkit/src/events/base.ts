@@ -1,35 +1,35 @@
-/**
- * Generic event interface - services define their own event data structures
- */
+import { randomUUID } from 'crypto';
 
 export interface BaseEvent {
-  eventId: string;
-  eventType: string;      // e.g., "order.created", "payment.completed"
-  timestamp: string;
+  id: string;
+  type: string;
+  timestamp: Date;
   version: string;
-  source: string;         // e.g., "orders-service"
-  data: Record<string, any>;  // Generic payload - each service defines its own structure
-  metadata?: {
-    correlationId?: string;
-    causationId?: string;
-    userId?: string;
-    [key: string]: any;
-  };
+  source: string;
+  payload: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+export interface EventMetadata {
+  correlationId?: string;
+  causationId?: string;
+  userId?: string;
+  traceId?: string;
 }
 
 export function createEvent(
-  eventType: string,
-  source: string,
-  data: Record<string, any>,
-  metadata?: BaseEvent['metadata']
+    type: string,
+    payload: Record<string, any>,
+    source: string,
+    metadata?: EventMetadata
 ): BaseEvent {
   return {
-    eventId: crypto.randomUUID(),
-    eventType,
-    timestamp: new Date().toISOString(),
-    version: '1.0',
+    id: randomUUID(),
+    type,
+    timestamp: new Date(),
+    version: '1.0.0',
     source,
-    data,
+    payload,
     metadata,
   };
 }

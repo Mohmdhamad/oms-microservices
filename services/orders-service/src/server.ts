@@ -12,7 +12,7 @@ import { InventoryReservedConsumer } from './events/consumers/inventory-reserved
 import { InventoryInsufficientConsumer } from './events/consumers/inventory-insufficient.consumer';
 import { PaymentCompletedConsumer } from './events/consumers/payment-completed.consumer';
 import { PaymentFailedConsumer } from './events/consumers/payment-failed.consumer';
-import { RabbitMQClient } from '@oms/toolkit/rabbitmq/client';
+import { RabbitMQClient } from '@oms/toolkit';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';

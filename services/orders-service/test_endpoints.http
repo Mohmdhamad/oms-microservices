@@ -1,0 +1,38 @@
+### Create Order
+POST http://localhost:3001/api/v1/orders
+Content-Type: application/json
+
+{
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "items": [
+    {
+      "productId": "550e8400-e29b-41d4-a716-446655440001",
+      "quantity": 2,
+      "unitPrice": 100
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "USA"
+  }
+}
+
+### List Orders
+GET http://localhost:3001/api/v1/orders?page=1&limit=10
+
+### Get Order by ID
+GET http://localhost:3001/api/v1/orders/ORDER_ID_HERE
+
+### Cancel Order
+POST http://localhost:3001/api/v1/orders/ORDER_ID_HERE/cancel
+Content-Type: application/json
+
+{
+  "reason": "Changed my mind"
+}
+
+### Health Check
+GET http://localhost:3001/health

@@ -1,7 +1,8 @@
 /**
  * Generic RabbitMQ client - no service-specific logic
  */
-import amqp, { Channel, Connection } from 'amqplib';
+import amqp from 'amqplib';
+import { Channel, Connection } from 'amqplib';
 
 export class RabbitMQClient {
   private static instance: RabbitMQClient;

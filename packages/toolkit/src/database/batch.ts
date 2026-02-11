@@ -1,88 +1,184 @@
-/**
- * Generic batch database utilities - no service-specific logic
- */
-import { Pool, PoolClient } from 'pg';
+import { QueryResult } from 'pg';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
 import format from 'pg-format';
+import { logger } from '../logger';
 
 export interface BatchInsertOptions {
   batchSize?: number;
   onBatchComplete?: (count: number) => void;
+  onError?: (error: Error, batch: any[]) => void;
 }
 
+export interface BatchUpdateOptions {
+  batchSize?: number;
+  onBatchComplete?: (count: number) => void;
+  onError?: (error: Error, batch: any[]) => void;
+}
+
+/**
+ * Batch insert records into database
+ * Uses pg-format for safe SQL generation
+ */
 export async function batchInsert<T extends Record<string, any>>(
-  client: Pool | PoolClient,
-  tableName: string,
-  columns: string[],
-  records: T[],
-  options: BatchInsertOptions = {}
+    db: NodePgDatabase<any>,
+    tableName: string,
+    columns: string[],
+    records: T[],
+    options: BatchInsertOptions = {}
 ): Promise<number> {
-  const { batchSize = 1000, onBatchComplete } = options;
-  if (records.length === 0) return 0;
+  const {
+    batchSize = 1000,
+    onBatchComplete,
+    onError
+  } = options;
 
   let totalInserted = 0;
+
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
-    const values = batch.map((record) => columns.map((col) => record[col]));
-    const query = format('INSERT INTO %I (%I) VALUES %L', tableName, columns, values);
-    await client.query(query);
-    totalInserted += batch.length;
-    onBatchComplete?.(batch.length);
+
+    try {
+      const values = batch.map(record =>
+          columns.map(col => record[col])
+      );
+
+      const insertQuery = format(
+          'INSERT INTO %I (%s) VALUES %L',
+          tableName,
+          columns.map(col => format('%I', col)).join(', '),
+          values
+      );
+
+      await db.execute(sql.raw(insertQuery));
+      totalInserted += batch.length;
+
+      if (onBatchComplete) {
+        onBatchComplete(totalInserted);
+      }
+    } catch (error) {
+      logger.error({ error, batch: batch.length }, 'Batch insert failed');
+      if (onError) {
+        onError(error as Error, batch);
+      } else {
+        throw error;
+      }
+    }
   }
+
   return totalInserted;
 }
 
+/**
+ * Batch update records in database
+ */
 export async function batchUpdate<T extends Record<string, any>>(
-  client: Pool | PoolClient,
-  tableName: string,
-  updates: T[],
-  idColumn: string,
-  updateColumns: string[]
+    db: NodePgDatabase<any>,
+    tableName: string,
+    records: T[],
+    keyColumn: string,
+    updateColumns: string[],
+    options: BatchUpdateOptions = {}
 ): Promise<number> {
-  if (updates.length === 0) return 0;
-  const tempTableName = `temp_${tableName}_${Date.now()}`;
+  const {
+    batchSize = 1000,
+    onBatchComplete,
+    onError
+  } = options;
 
-  try {
-    await client.query(format('CREATE TEMP TABLE %I (LIKE %I INCLUDING DEFAULTS)', tempTableName, tableName));
-    const columns = [idColumn, ...updateColumns];
-    const values = updates.map((record) => columns.map((col) => record[col]));
-    await client.query(format('INSERT INTO %I (%I) VALUES %L', tempTableName, columns, values));
-
-    const setClause = updateColumns.map((col) => format('%I = %I.%I', col, tempTableName, col)).join(', ');
-    const updateQuery = format(
-      `UPDATE %I SET ${setClause} FROM %I WHERE %I.%I = %I.%I`,
-      tableName, tempTableName, tableName, idColumn, tempTableName, idColumn
-    );
-    const result = await client.query(updateQuery);
-    return result.rowCount || 0;
-  } finally {
-    await client.query(format('DROP TABLE IF EXISTS %I', tempTableName));
-  }
-}
-
-export async function batchUpsert<T extends Record<string, any>>(
-  client: Pool | PoolClient,
-  tableName: string,
-  records: T[],
-  conflictColumns: string[],
-  updateColumns: string[],
-  options: BatchInsertOptions = {}
-): Promise<number> {
-  const { batchSize = 1000 } = options;
-  if (records.length === 0) return 0;
-
-  let totalUpserted = 0;
-  const allColumns = Object.keys(records[0]);
+  let totalUpdated = 0;
 
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
-    const values = batch.map((record) => allColumns.map((col) => record[col]));
-    const updateSet = updateColumns.map((col) => format('%I = EXCLUDED.%I', col, col)).join(', ');
-    const query = format(
-      `INSERT INTO %I (%I) VALUES %L ON CONFLICT (%I) DO UPDATE SET ${updateSet}`,
-      tableName, allColumns, values, conflictColumns
-    );
-    const result = await client.query(query);
-    totalUpserted += result.rowCount || 0;
+
+    try {
+      for (const record of batch) {
+        if (!record) continue;
+
+        const keys = Object.keys(record);
+        if (keys.length === 0) continue;
+
+        const setClauses = updateColumns
+            .filter(col => col !== keyColumn && keys.includes(col))
+            .map(col => format('%I = %L', col, record[col]))
+            .join(', ');
+
+        if (!setClauses) continue;
+
+        const updateQuery = format(
+            'UPDATE %I SET %s WHERE %I = %L',
+            tableName,
+            setClauses,
+            keyColumn,
+            record[keyColumn]
+        );
+
+        await db.execute(sql.raw(updateQuery));
+        totalUpdated++;
+      }
+
+      if (onBatchComplete) {
+        onBatchComplete(totalUpdated);
+      }
+    } catch (error) {
+      logger.error({ error, batch: batch.length }, 'Batch update failed');
+      if (onError) {
+        onError(error as Error, batch);
+      } else {
+        throw error;
+      }
+    }
   }
-  return totalUpserted;
+
+  return totalUpdated;
+}
+
+/**
+ * Batch delete records from database
+ */
+export async function batchDelete(
+    db: NodePgDatabase<any>,
+    tableName: string,
+    keyColumn: string,
+    keys: (string | number)[],
+    options: BatchUpdateOptions = {}
+): Promise<number> {
+  const {
+    batchSize = 1000,
+    onBatchComplete,
+    onError
+  } = options;
+
+  let totalDeleted = 0;
+
+  for (let i = 0; i < keys.length; i += batchSize) {
+    const batch = keys.slice(i, i + batchSize);
+
+    try {
+      const deleteQuery = format(
+          'DELETE FROM %I WHERE %I IN (%L)',
+          tableName,
+          keyColumn,
+          batch
+      );
+
+      const result: QueryResult = await db.execute(sql.raw(deleteQuery));
+      totalDeleted += result.rowCount || 0;
+
+      if (onBatchComplete) {
+        onBatchComplete(totalDeleted);
+      }
+    } catch (error) {
+      logger.error({ error, batch: batch.length }, 'Batch delete failed');
+      if (onError) {
+        onError(error as Error, batch);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return totalDeleted;
+}
+export class batchUpsert {
 }

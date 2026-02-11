@@ -14,7 +14,7 @@ import { warehouseRoutes } from './routes/warehouse.routes';
 import { ProductEventPublisher } from './events/publisher';
 import { OrderCreatedConsumer } from './events/consumers/order-created.consumer';
 import { OrderCancelledConsumer } from './events/consumers/order-cancelled.consumer';
-import { RabbitMQClient } from '@oms/toolkit/rabbitmq/client';
+import { RabbitMQClient } from '@oms/toolkit';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
