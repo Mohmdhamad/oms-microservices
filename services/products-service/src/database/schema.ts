@@ -1,8 +1,25 @@
-import { pgTable, uuid, varchar, text, decimal, boolean, timestamp, integer, jsonb, pgEnum, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  decimal,
+  boolean,
+  timestamp,
+  integer,
+  jsonb,
+  pgEnum,
+  uniqueIndex,
+  index,
+} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enums
-export const reservationStatusEnum = pgEnum('reservation_status', ['pending', 'confirmed', 'released']);
+export const reservationStatusEnum = pgEnum('reservation_status', [
+  'pending',
+  'confirmed',
+  'released',
+]);
 
 // Warehouses table
 export const warehouses = pgTable('warehouses', {
@@ -15,48 +32,71 @@ export const warehouses = pgTable('warehouses', {
 });
 
 // Products table
-export const products = pgTable('products', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: varchar('name', { length: 255 }).notNull(),
-  description: text('description').notNull(),
-  sku: varchar('sku', { length: 100 }).notNull(),
-  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
-  categoryId: uuid('category_id'),
-  attributes: jsonb('attributes'),
-  imageUrl: varchar('image_url', { length: 500 }),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  skuIdx: uniqueIndex('products_sku_idx').on(table.sku),
-}));
+export const products = pgTable(
+  'products',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description').notNull(),
+    sku: varchar('sku', { length: 100 }).notNull(),
+    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    categoryId: uuid('category_id'),
+    attributes: jsonb('attributes'),
+    imageUrl: varchar('image_url', { length: 500 }),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    skuIdx: uniqueIndex('products_sku_idx').on(table.sku),
+  })
+);
 
 // Inventory table
-export const inventory = pgTable('inventory', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  warehouseId: uuid('warehouse_id').notNull().references(() => warehouses.id, { onDelete: 'cascade' }),
-  quantity: integer('quantity').notNull().default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  productWarehouseIdx: uniqueIndex('inventory_product_warehouse_idx').on(table.productId, table.warehouseId),
-}));
+export const inventory = pgTable(
+  'inventory',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    warehouseId: uuid('warehouse_id')
+      .notNull()
+      .references(() => warehouses.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    productWarehouseIdx: uniqueIndex('inventory_product_warehouse_idx').on(
+      table.productId,
+      table.warehouseId
+    ),
+  })
+);
 
 // Inventory Reservations table
-export const inventoryReservations = pgTable('inventory_reservations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  orderId: uuid('order_id').notNull(),
-  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  warehouseId: uuid('warehouse_id').notNull().references(() => warehouses.id, { onDelete: 'cascade' }),
-  quantity: integer('quantity').notNull(),
-  status: reservationStatusEnum('status').notNull().default('pending'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  orderIdIdx: index('inventory_reservations_order_id_idx').on(table.orderId),
-  productIdIdx: index('inventory_reservations_product_id_idx').on(table.productId),
-}));
+export const inventoryReservations = pgTable(
+  'inventory_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id').notNull(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    warehouseId: uuid('warehouse_id')
+      .notNull()
+      .references(() => warehouses.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull(),
+    status: reservationStatusEnum('status').notNull().default('pending'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    orderIdIdx: index('inventory_reservations_order_id_idx').on(table.orderId),
+    productIdIdx: index('inventory_reservations_product_id_idx').on(table.productId),
+  })
+);
 
 // Relations
 export const productsRelations = relations(products, ({ many }) => ({

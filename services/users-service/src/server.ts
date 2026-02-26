@@ -3,9 +3,12 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { logger, AppError } from '@oms/toolkit';
+import { logger } from '@oms/toolkit';
 import { RabbitMQClient } from '@oms/toolkit';
-import {defineUserRoutes} from "./routes/user-routes";
+import { defineUserRoutes } from "./routes/user-routes";
+import { UsersServices } from './services/users.services';
+import { UserEventPublisher } from './events/publisher';
+import errorHandler from '@oms/toolkit/src/errors/error_handler';
 
 const PORT = parseInt(process.env.PORT || '3003', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -18,6 +21,10 @@ async function start() {
     const rabbitMQClient = RabbitMQClient.getInstance(rabbitMQUrl);
     await rabbitMQClient.connect();
 
+    // Initialize Services
+    const userEventPublisher = new UserEventPublisher(rabbitMQUrl);
+    const usersServices = new UsersServices(userEventPublisher);
+
     // Create Fastify app
     const fastify = Fastify({
       logger: false, // Use our custom logger
@@ -26,10 +33,13 @@ async function start() {
     });
 
     // Register plugins
+    await fastify.register(errorHandler);
+
     await fastify.register(cors, {
       origin: true,
       credentials: true,
     });
+
 
     await fastify.register(helmet, {
       contentSecurityPolicy: false,
@@ -42,7 +52,7 @@ async function start() {
 
     // Health check endpoint
     fastify.get('/health', async (request, reply) => {
-      reply.send({
+      return reply.send({
         status: 'healthy',
         service: 'users-service',
         timestamp: new Date().toISOString(),
@@ -50,28 +60,7 @@ async function start() {
     });
 
     // Define all user routes
-    defineUserRoutes(fastify);
-
-    // Global error handler
-    fastify.setErrorHandler((error, request, reply) => {
-      if (error instanceof AppError) {
-        reply.code(error.statusCode).send({
-          error: {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-          },
-        });
-      } else {
-        logger.error({ error, requestId: request.id }, 'Unhandled error');
-        reply.code(500).send({
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An unexpected error occurred',
-          },
-        });
-      }
-    });
+    defineUserRoutes(fastify, usersServices);
 
     // Start server
     await fastify.listen({ port: PORT, host: HOST });

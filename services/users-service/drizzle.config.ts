@@ -1,3 +1,4 @@
+import 'dotenv/config'; // Load environment variables
 import type { Config } from 'drizzle-kit';
 
 export default {
