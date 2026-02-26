@@ -1,28 +1,15 @@
   import { User, users } from '../database/schema';
-  import { UserDto } from '../routes/UserDto';
   const bcrypt = require('bcrypt');
   import { db } from '../database/client';
   import { UserEventPublisher } from '../events/publisher';
-  import { logger, ValidationError } from '@oms/toolkit';
-  import { eq } from 'drizzle-orm';
-  import { createUserCreatedEvent } from '../events/user-created.event';
+  import { logger, PaginationParams, ValidationError } from '@oms/toolkit';
+  import { eq, like, or, sql } from 'drizzle-orm';
+  import { ListUserRequest, UserForm } from './types';
 
-  export interface CreateUserData {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-  }
   export class UsersServices {
     constructor(private eventPublisher: UserEventPublisher) {}
-    async createUser(data: CreateUserData): Promise<User> {
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.email, data.email),
-      });
-
-      if (existingUser) {
-        throw new ValidationError('Email already exists');
-      }
+    // Register new user
+    async createUser(data: UserForm): Promise<User> {
 
       const passwordHash = await bcrypt.hash(data.password, 12);
 
@@ -36,9 +23,11 @@
         })
         .returning();
 
+
       return savedUser;
     }
-    async updateUser(id: string, data: Partial<CreateUserData>): Promise<User> {
+    // Update user
+    async updateUser(id: string, data: Partial<UserForm>): Promise<User> {
       try {
         logger.info({ userId: id }, 'Updating User');
         const updatedData : any = {
@@ -56,15 +45,47 @@
         throw error;
       }
     }
+    // delete user
     async deleteUser(id: any){
       try {
         const userIdToDelete = typeof id === 'object' && id.id ? id.id : id;
         logger.info({ userId: userIdToDelete }, 'Deleting User');
-        const [deletedUser] = await db.delete(users).where(eq(users.id, userIdToDelete)).returning();
+        await db.delete(users).where(eq(users.id, userIdToDelete)).execute();
         logger.info({ userID: userIdToDelete }, 'User deleted successfully');
-        return deletedUser;
       } catch (error) {
         logger.error({ error,}, 'Failed to delete user');
+        throw error;
+      }
+    }
+    // List Users
+    async listUsers(requestForm: ListUserRequest): Promise<{users: any[], total: number}> {
+      try {
+        const condition = requestForm.searchTerm ? or(like(users.firstName, requestForm.searchTerm), like(users.email, requestForm.searchTerm)) : eq(1, 1);
+        const offset = (requestForm.page - 1) * requestForm.limit;
+
+        const [resultList, countResult] = await Promise.all([
+          db
+            .select({
+              id: users.id,
+              firstName: users.firstName,
+              lastName: users.lastName,
+              email: users.email,
+            })
+            .from(users)
+            .where(condition)
+            .limit(requestForm.limit)
+            .offset(offset),
+          db
+            .select({ count: sql<number>`count(*)` })
+            .from(users)
+            .where(condition),
+        ]);
+
+        const total = Number(countResult[0]?.count ?? 0);
+        return {users: resultList, total}
+
+      } catch (error) {
+        logger.error({ error }, 'Failed to list users');
         throw error;
       }
     }

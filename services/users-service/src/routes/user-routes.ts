@@ -1,10 +1,10 @@
 import { FastifyInstance } from 'fastify';
-import { UserDto } from './UserDto';
 import { users } from '../database/schema';
 import { db } from '../database/client';
 import { UsersServices } from '../services/users.services';
 import { AppError, logger } from '@oms/toolkit';
 import { updateUserSchema, validateRequest } from '../schemas/user.schema';
+import { userEntityToForm } from '../services/converts';
 const bcrypt = require('bcrypt');
 
 /**
@@ -20,28 +20,8 @@ export function defineUserRoutes(fastify: FastifyInstance, usersServices: UsersS
   createNewUser(fastify, usersServices);
   updateUser(fastify, usersServices);
   deleteUser(fastify, usersServices);
+  listUsers(fastify, usersServices);
   // createNewUserRoute(fastify, usersServices);
-}
-function createNewUserRoute(fastify: FastifyInstance, usersServices: UsersServices) {
-  fastify.post('/users/new', async (req, res) => {
-    const userDto = req.body as UserDto;
-    if (!userDto.password) {
-      throw new Error('Password is required');
-    }
-    const passwordHash = bcrypt.hashSync(userDto.password, 12);
-
-    const savedUser = await db
-      .insert(users)
-      .values({
-        firstName: userDto.firstName,
-        lastName: userDto.lastName,
-        email: userDto.email,
-        passwordHash: passwordHash,
-      })
-      .returning();
-
-    res.send(savedUser);
-  });
 }
 
 function mohamedEndpoint(fastify: FastifyInstance) {
@@ -53,11 +33,12 @@ function mohamedEndpoint(fastify: FastifyInstance) {
   });
 }
 function createNewUser(fastify: FastifyInstance, usersServices: UsersServices) {
-  fastify.post('/api/v1/user/new', {}, async (request, reply) => {
+  fastify.post('/api/v1/user', {}, async (request, reply) => {
     try {
       const { body } = request as any;
       const user = await usersServices.createUser(body);
-      reply.code(201).send(user);
+      const userForm = userEntityToForm(user);
+      reply.code(201).send(userForm);
     } catch (error: any) {
       if (error instanceof AppError) {
         reply.code(error.statusCode).send({
@@ -98,11 +79,11 @@ function updateUser(fastify: FastifyInstance, usersServices: UsersServices) {
             },
           });
         } else {
-          logger.error({ error }, 'Failed to update order');
+          logger.error({ error }, 'Failed to update User');
           reply.code(500).send({
             error: {
               code: 'INTERNAL_ERROR',
-              message: 'Failed to update order',
+              message: 'Failed to update User',
             },
           });
         }
@@ -117,8 +98,8 @@ function deleteUser(fastify: FastifyInstance, usersServices: UsersServices) {
     async (request, reply) => {
       try {
         const id = request.params as any;
-        const user = await usersServices.deleteUser(id);
-        reply.send(user);
+        await usersServices.deleteUser(id);
+        reply.send({ success: true });
       } catch (error: any) {
         if (error instanceof AppError) {
           reply.code(error.statusCode).send({
@@ -128,15 +109,42 @@ function deleteUser(fastify: FastifyInstance, usersServices: UsersServices) {
             },
           });
         } else {
-          logger.error({ error }, 'Failed to update order');
+          logger.error({ error }, 'Failed to update User');
           reply.code(500).send({
             error: {
               code: 'INTERNAL_ERROR',
-              message: 'Failed to update order',
+              message: 'Failed to update User',
             },
           });
         }
       }
     }
   );
+}
+function listUsers(fastify: FastifyInstance, usersServices: UsersServices) {
+  fastify.get('/api/v1/users', async (request, reply) => {
+    try {
+      const { query } = request as any;
+      const { page, limit, searchTerm } = query;
+      const users = await usersServices.listUsers({page, limit, searchTerm});
+      reply.send(users);
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        reply.code(error.statusCode).send({
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        });
+      } else {
+        logger.error({ error }, 'Failed to update User');
+        reply.code(500).send({
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to update User`',
+          },
+        });
+      }
+    }
+  });
 }
